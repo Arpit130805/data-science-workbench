@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: data-science-workbench-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-workbench_db}
+      POSTGRES_USER: ${POSTGRES_USER:-workbench_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-workbench_user} -d ${POSTGRES_DB:-workbench_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mlflow
+    container_name: data-science-workbench-mlflow
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: data-science-workbench-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workbench_user}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}@postgres:5432/${POSTGRES_DB:-workbench_db}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.streamlit
+    container_name: data-science-workbench-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-workbench_user}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}@postgres:5432/${POSTGRES_DB:-workbench_db}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  mlflow_data:

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+datasets/raw/*
+!datasets/raw/.gitkeep
+datasets/processed/*
+!datasets/processed/.gitkeep
+mlruns/
+experiments/mlruns/
+experiments/mlflow.db
+experiments/mlartifacts/
+models/*.joblib
